@@ -1,26 +1,233 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Configuração da cor padrão do projeto */
+@theme {
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-300: #86efac;
+  --color-primary-400: #4ade80;
+  --color-primary-500: #22c55e;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #15803d;
+  --color-primary-800: #166534;
+  --color-primary-900: #14532d;
+  --color-primary-950: #032611;
+
+  /* Aliases para a cor principal */
+  --color-brand: #032611;
+  --color-brand-light: #14532d;
+  --color-brand-dark: #021f0d;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Reset básico e configuração do Tailwind */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
+  font-size: 18px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", sans-serif !important;
+  margin: 0;
+  line-height: inherit;
+}
+
+/* REMOVE COMPLETAMENTE QUALQUER OUTLINE PRETO */
+* {
+  outline: none !important;
+}
+
+*:focus {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+}
+
+/* Remove COMPLETAMENTE outline e bordas padrão */
+input,
+select,
+textarea,
+button {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+  border-color: inherit !important;
+  box-shadow: none !important;
+}
+
+/* Remove estilo padrão de checkbox e outros elementos de formulário */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+input[type="checkbox"]:focus,
+input[type="radio"]:focus,
+input[type="range"]:focus {
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+/* Remove qualquer highlight azul padrão em dispositivos móveis */
+input,
+textarea,
+select,
+button {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Permite seleção de texto apenas em inputs de texto */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+textarea {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Força cor verde padrão para selects e dropdowns */
+select {
+  background-color: white !important;
+  color: #032611 !important;
+  border-color: #86efac !important;
+}
+
+select:focus {
+  border-color: #032611 !important;
+  box-shadow: 0 0 0 2px rgba(3, 38, 17, 0.2) !important;
+  background-color: white !important;
+}
+
+/* Opções do select com fundo verde quando selecionada */
+select option {
+  background-color: white !important;
+  color: #032611 !important;
+  padding: 8px 12px !important;
+}
+
+select option:checked,
+select option:hover,
+select option:focus {
+  background-color: #032611 !important;
+  color: white !important;
+  background-image: none !important;
+}
+
+/* Estilização específica para diferentes navegadores */
+select option[selected] {
+  background-color: #032611 !important;
+  color: white !important;
+}
+
+/* Para navegadores WebKit (Chrome, Safari) */
+select::-webkit-scrollbar {
+  width: 8px;
+}
+
+select::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+select::-webkit-scrollbar-thumb {
+  background: #032611;
+  border-radius: 4px;
+}
+
+select::-webkit-scrollbar-thumb:hover {
+  background: #14532d;
+}
+
+/* Sobrescreve qualquer cor azul padrão do Tailwind */
+.text-blue-600,
+.text-blue-500,
+.text-blue-700 {
+  color: #032611 !important;
+}
+
+.bg-blue-600,
+.bg-blue-500,
+.bg-blue-700 {
+  background-color: #032611 !important;
+}
+
+.border-blue-600,
+.border-blue-500,
+.border-blue-700 {
+  border-color: #032611 !important;
+}
+
+.focus\:ring-blue-500:focus,
+.focus\:ring-blue-600:focus {
+  --tw-ring-color: #032611 !important;
+}
+
+.focus\:border-blue-500:focus,
+.focus\:border-blue-600:focus {
+  border-color: #032611 !important;
+}
+
+/* Garante que TODOS os elementos de formulário usem verde */
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #032611 !important;
+  box-shadow: 0 0 0 2px rgba(3, 38, 17, 0.2) !important;
+}
+
+/* Força cor verde para qualquer estado hover/focus em formulários */
+.focus\:ring-2:focus {
+  --tw-ring-color: rgba(3, 38, 17, 0.2) !important;
+}
+
+/* Override específico para selects - força verde em todos os estados */
+select {
+  accent-color: #032611 !important;
+}
+
+select::-ms-expand {
+  background-color: #032611 !important;
 }

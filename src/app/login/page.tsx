@@ -80,15 +80,17 @@ export default function LoginPage() {
           {/* Formulário */}
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                <div className="flex items-start">
                   <Icon
                     icon="iron:warning"
-                    width={20}
-                    height={20}
-                    className="text-red-600 mr-2"
+                    width={28}
+                    height={28}
+                    className="text-red-600 mr-3 mt-1 flex-shrink-0"
                   />
-                  <p className="text-red-800 text-sm">{error}</p>
+                  <p className="text-red-800 text-lg font-medium leading-relaxed">
+                    {error}
+                  </p>
                 </div>
               </div>
             )}

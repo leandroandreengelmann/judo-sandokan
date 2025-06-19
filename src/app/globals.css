@@ -231,3 +231,53 @@ select {
 select::-ms-expand {
   background-color: #032611 !important;
 }
+
+/* Estilos customizados para checkbox - garantindo que apareça quando marcado */
+input[type="checkbox"] {
+  position: relative;
+  background-color: white !important;
+  border: 2px solid #94a3b8 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+input[type="checkbox"]:hover {
+  border-color: #032611 !important;
+}
+
+input[type="checkbox"]:focus {
+  border-color: #032611 !important;
+  box-shadow: 0 0 0 2px rgba(3, 38, 17, 0.2) !important;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #032611 !important;
+  border-color: #032611 !important;
+}
+
+input[type="checkbox"]:checked::after {
+  content: "✓" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: white !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+}
+
+/* Força o checkmark branco quando marcado */
+input[type="checkbox"]:checked {
+  background-image: none !important;
+}
+
+/* Remove qualquer estilo padrão do navegador */
+input[type="checkbox"]::-webkit-appearance {
+  -webkit-appearance: none !important;
+}
+
+input[type="checkbox"]::-moz-appearance {
+  -moz-appearance: none !important;
+}

@@ -184,6 +184,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
+        // Personalizar mensagens de erro para português
+        if (error.message.includes("Email not confirmed")) {
+          return {
+            error:
+              "📧 Confirme seu email antes de fazer login. Verifique sua caixa de entrada (e spam) e clique no link de confirmação que enviamos.",
+          };
+        }
+        if (error.message.includes("Invalid login credentials")) {
+          return {
+            error:
+              "❌ Email ou senha incorretos. Verifique suas credenciais e tente novamente.",
+          };
+        }
         return { error: error.message };
       }
 

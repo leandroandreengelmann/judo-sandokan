@@ -19,8 +19,8 @@ export interface UserProfile {
   email: string;
   nome_completo?: string;
   data_nascimento?: string;
-  altura?: number;
-  peso?: number;
+  altura?: number | null;
+  peso?: number | null;
   escolaridade?: string;
   cor_faixa?: string;
   escola?: string;
@@ -52,8 +52,8 @@ export interface AuthUser {
   email: string;
   nome_completo?: string;
   data_nascimento?: string;
-  altura?: number;
-  peso?: number;
+  altura?: number | null;
+  peso?: number | null;
   escolaridade?: string;
   cor_faixa?: string;
   escola?: string;

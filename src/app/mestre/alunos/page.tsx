@@ -87,6 +87,8 @@ export default function AlunosPage() {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [selectedAlunos, setSelectedAlunos] = useState<Set<string>>(new Set());
+  const [showDeleteBatchModal, setShowDeleteBatchModal] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     nome_completo: "",
     email: "",
@@ -373,6 +375,66 @@ export default function AlunosPage() {
     }
   };
 
+  // Funções para seleção em lote
+  const toggleSelectAluno = (alunoId: string) => {
+    const newSelected = new Set(selectedAlunos);
+    if (newSelected.has(alunoId)) {
+      newSelected.delete(alunoId);
+    } else {
+      newSelected.add(alunoId);
+    }
+    setSelectedAlunos(newSelected);
+  };
+
+  const selectAllAlunos = () => {
+    const allIds = new Set(filteredAlunos.map((aluno) => aluno.id));
+    setSelectedAlunos(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedAlunos(new Set());
+  };
+
+  const deleteBatchAlunos = async () => {
+    if (selectedAlunos.size === 0) return;
+
+    const alunosParaExcluir = alunos.filter((aluno) =>
+      selectedAlunos.has(aluno.id)
+    );
+    const nomes = alunosParaExcluir
+      .map((aluno) => aluno.nome_completo || aluno.email)
+      .join(", ");
+
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir ${selectedAlunos.size} aluno(s)?\n\n${nomes}`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const idsArray = Array.from(selectedAlunos);
+      const { error } = await supabase
+        .from("user_profiles")
+        .delete()
+        .in("id", idsArray);
+
+      if (error) {
+        alert("Erro ao excluir alunos: " + error.message);
+        return;
+      }
+
+      alert(`${selectedAlunos.size} aluno(s) excluído(s) com sucesso!`);
+      setSelectedAlunos(new Set());
+      setShowDeleteBatchModal(false);
+      await loadAlunos();
+    } catch (error) {
+      console.error("Erro ao excluir alunos em lote:", error);
+      alert("Erro inesperado ao excluir alunos");
+    }
+  };
+
   const filteredAlunos = alunos.filter((aluno) => {
     const matchesSearch =
       aluno.nome_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -506,7 +568,7 @@ export default function AlunosPage() {
 
         {/* Filtros */}
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border border-primary-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs lg:text-sm font-medium text-primary-900 mb-2">
                 Buscar Aluno
@@ -540,6 +602,47 @@ export default function AlunosPage() {
               </select>
             </div>
           </div>
+
+          {/* Controles de Seleção em Lote */}
+          {filteredAlunos.length > 0 && (
+            <div className="border-t border-primary-200 pt-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-primary-700">
+                    {selectedAlunos.size} de {filteredAlunos.length} aluno(s)
+                    selecionado(s)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={selectAllAlunos}
+                    className="px-3 py-2 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
+                  >
+                    ✅ Selecionar Todos
+                  </button>
+
+                  {selectedAlunos.size > 0 && (
+                    <>
+                      <button
+                        onClick={clearSelection}
+                        className="px-3 py-2 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        ❌ Limpar Seleção
+                      </button>
+
+                      <button
+                        onClick={() => setShowDeleteBatchModal(true)}
+                        className="px-3 py-2 text-sm bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors font-medium"
+                      >
+                        🗑️ Excluir Selecionados ({selectedAlunos.size})
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Lista de Alunos */}
@@ -564,6 +667,23 @@ export default function AlunosPage() {
                 <table className="w-full">
                   <thead className="bg-primary-50">
                     <tr>
+                      <th className="px-6 py-4 text-center text-sm font-medium text-primary-900">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedAlunos.size === filteredAlunos.length &&
+                            filteredAlunos.length > 0
+                          }
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              selectAllAlunos();
+                            } else {
+                              clearSelection();
+                            }
+                          }}
+                          className="w-4 h-4 text-primary-600 bg-white border-2 border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                        />
+                      </th>
                       <th className="px-6 py-4 text-left text-sm font-medium text-primary-900">
                         Aluno
                       </th>
@@ -590,6 +710,14 @@ export default function AlunosPage() {
                   <tbody className="divide-y divide-gray-200">
                     {filteredAlunos.map((aluno) => (
                       <tr key={aluno.id} className="hover:bg-primary-25">
+                        <td className="px-6 py-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedAlunos.has(aluno.id)}
+                            onChange={() => toggleSelectAluno(aluno.id)}
+                            className="w-4 h-4 text-primary-600 bg-white border-2 border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div>
                             <div className="font-medium text-primary-950">
@@ -714,13 +842,21 @@ export default function AlunosPage() {
                   className="bg-white rounded-xl shadow-lg border border-primary-200 p-4"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-primary-950 truncate">
-                        {aluno.nome_completo || "Nome não informado"}
-                      </h3>
-                      <p className="text-sm text-primary-600 truncate">
-                        {aluno.email}
-                      </p>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedAlunos.has(aluno.id)}
+                        onChange={() => toggleSelectAluno(aluno.id)}
+                        className="w-4 h-4 text-primary-600 bg-white border-2 border-gray-300 rounded focus:ring-primary-500 focus:ring-2 mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-primary-950 truncate">
+                          {aluno.nome_completo || "Nome não informado"}
+                        </h3>
+                        <p className="text-sm text-primary-600 truncate">
+                          {aluno.email}
+                        </p>
+                      </div>
                     </div>
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium shrink-0 ml-2 ${
@@ -1475,6 +1611,44 @@ export default function AlunosPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Confirmação de Exclusão em Lote */}
+        {showDeleteBatchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+              <div className="p-6">
+                <div className="text-center mb-6">
+                  <div className="text-6xl mb-4">⚠️</div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Confirmar Exclusão em Lote
+                  </h3>
+                  <p className="text-gray-600">
+                    Tem certeza que deseja excluir {selectedAlunos.size}{" "}
+                    aluno(s) selecionado(s)?
+                  </p>
+                  <p className="text-sm text-red-600 mt-2 font-medium">
+                    Esta ação não pode ser desfeita!
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDeleteBatchModal(false)}
+                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={deleteBatchAlunos}
+                    className="flex-1 px-4 py-3 bg-red-600 text-white hover:bg-red-700 rounded-lg font-medium transition-colors"
+                  >
+                    Excluir Todos
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

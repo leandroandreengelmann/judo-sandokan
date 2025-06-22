@@ -33,10 +33,10 @@ export default function Home() {
                 🥋 Entrar no Sistema
               </Link>
               <Link
-                href="/cadastro"
+                href="/criar-conta"
                 className="bg-yellow-600 hover:bg-yellow-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center text-sm sm:text-base"
               >
-                ⭐ Cadastrar-se como Aluno
+                ⭐ Criar Conta
               </Link>
             </div>
           </div>

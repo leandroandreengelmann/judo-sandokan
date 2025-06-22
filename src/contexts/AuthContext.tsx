@@ -141,6 +141,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
 
+      console.log("=== DEBUG CADASTRO ===");
+      console.log("1. Dados recebidos para cadastro:", { email, userData });
+
       // Criar usuário no Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -148,27 +151,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
+        console.error("2. Erro ao criar usuário:", error);
         return { error: error.message };
       }
 
+      console.log("3. Usuário criado com sucesso:", data.user?.id);
+
       // Se o usuário foi criado, atualizar o perfil com dados extras
       if (data.user && Object.keys(userData).length > 0) {
+        console.log("4. Aguardando trigger criar perfil básico...");
         // Aguardar um pouco para o trigger criar o perfil básico
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // Aumentei para 2 segundos
 
-        const { error: profileError } = await supabase
-          .from("user_profiles")
-          .update(userData)
-          .eq("id", data.user.id);
+        console.log("5. Atualizando perfil com dados do usuário...");
+
+        // Primeiro, tentar usar função especial que bypassa RLS
+        console.log("6. Dados para função update_profile_on_signup:", userData);
+
+        const { data: updateData, error: profileError } = await supabase.rpc(
+          "update_profile_on_signup",
+          {
+            user_id: data.user.id,
+            profile_data: userData,
+          }
+        );
 
         if (profileError) {
-          console.error("Erro ao atualizar perfil:", profileError);
-          // Não retornar erro aqui, pois o usuário foi criado com sucesso
+          console.error("7. Erro ao atualizar perfil via RPC:", profileError);
+          console.log("8. Tentando update direto como fallback...");
+
+          // Fallback: tentar update direto
+          const { error: directUpdateError } = await supabase
+            .from("user_profiles")
+            .update(userData)
+            .eq("id", data.user.id);
+
+          if (directUpdateError) {
+            console.error(
+              "9. Erro no update direto também:",
+              directUpdateError
+            );
+            console.error("Detalhes completos:", {
+              message: directUpdateError.message,
+              details: directUpdateError.details,
+              hint: directUpdateError.hint,
+              code: directUpdateError.code,
+            });
+            // Não retornar erro aqui, pois o usuário foi criado com sucesso
+          } else {
+            console.log("9. Update direto funcionou como fallback!");
+          }
+        } else {
+          console.log("8. Perfil atualizado com sucesso via RPC:", updateData);
         }
       }
 
+      console.log("9. Cadastro finalizado com sucesso!");
       return {};
-    } catch {
+    } catch (error) {
+      console.error("10. Erro inesperado durante cadastro:", error);
       return { error: "Erro inesperado ao criar conta" };
     } finally {
       setLoading(false);
@@ -260,19 +301,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: "Usuário não autenticado" };
       }
 
+      console.log("🔄 Iniciando atualização de perfil...");
+      console.log("📝 Dados recebidos:", data);
+
+      // Limpar e validar dados antes de enviar
+      const cleanData: Record<string, string | number> = {};
+
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          // Tratamento especial para campos numéricos
+          if (
+            key === "altura" ||
+            key === "peso" ||
+            key === "anos_experiencia"
+          ) {
+            const numValue =
+              typeof value === "string" ? parseFloat(value) : (value as number);
+            if (!isNaN(numValue) && numValue > 0) {
+              cleanData[key] = numValue;
+            }
+          } else {
+            // Campos de texto - trim e verificar se não está vazio
+            const strValue =
+              typeof value === "string" ? value.trim() : String(value);
+            if (strValue && strValue !== "") {
+              cleanData[key] = strValue;
+            }
+          }
+        }
+      });
+
+      console.log("🧹 Dados limpos para envio:", cleanData);
+
       const { error } = await supabase
         .from("user_profiles")
-        .update(data)
+        .update(cleanData)
         .eq("id", user.id);
 
       if (error) {
-        return { error: error.message };
+        console.error("❌ Erro do Supabase:", error);
+        console.error("📋 Detalhes do erro:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        return { error: `Erro ao atualizar perfil: ${error.message}` };
       }
 
+      console.log("✅ Perfil atualizado com sucesso!");
+
       // Atualizar estado local
-      setUser((prev) => (prev ? { ...prev, ...data } : null));
+      setUser((prev) => (prev ? { ...prev, ...cleanData } : null));
       return {};
-    } catch {
+    } catch (error) {
+      console.error("❌ Erro inesperado ao atualizar perfil:", error);
       return { error: "Erro inesperado ao atualizar perfil" };
     }
   };

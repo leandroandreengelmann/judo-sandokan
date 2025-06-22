@@ -14,11 +14,11 @@ interface Faixa {
   ordem: number;
 }
 
-export default function CadastroPage() {
+export default function Cadastro2Page() {
   const router = useRouter();
   const { signUp, loading } = useAuth();
   const [formData, setFormData] = useState({
-    // Dados pessoais
+    // Dados pessoais - TODOS OBRIGATÓRIOS
     nomeCompleto: "",
     email: "",
     senha: "",
@@ -30,19 +30,18 @@ export default function CadastroPage() {
     escola: "",
     contato: "",
     endereco: "",
-    enderecoIgualResponsavel: false,
 
-    // Redes sociais
+    // Redes sociais - TODAS OBRIGATÓRIAS
     instagram: "",
     facebook: "",
     tiktok: "",
 
-    // Saúde
+    // Saúde - TODAS OBRIGATÓRIAS
     tipoSanguineo: "",
     tomaRemedio: "",
     alergicoRemedio: "",
 
-    // Responsável
+    // Responsável - TODOS OBRIGATÓRIOS
     nomeResponsavel: "",
     enderecoResponsavel: "",
     cpfResponsavel: "",
@@ -92,14 +91,83 @@ export default function CadastroPage() {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value.trim() })); // Remove espaços em branco
+      // Aplicar trim apenas em campos específicos
+      const shouldTrim = ["email", "nomeCompleto", "escola"].includes(name);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: shouldTrim ? value.trim() : value,
+      }));
     }
+  };
+
+  const validateForm = () => {
+    const requiredFields = [
+      { field: "nomeCompleto", label: "Nome Completo" },
+      { field: "email", label: "Email" },
+      { field: "senha", label: "Senha" },
+      { field: "dataNascimento", label: "Data de Nascimento" },
+      { field: "altura", label: "Altura" },
+      { field: "peso", label: "Peso" },
+      { field: "escolaridade", label: "Escolaridade" },
+      { field: "corFaixa", label: "Cor da Faixa" },
+      { field: "escola", label: "Escola" },
+      { field: "contato", label: "Contato" },
+      { field: "endereco", label: "Endereço" },
+      { field: "instagram", label: "Instagram" },
+      { field: "facebook", label: "Facebook" },
+      { field: "tiktok", label: "TikTok" },
+      { field: "tipoSanguineo", label: "Tipo Sanguíneo" },
+      { field: "tomaRemedio", label: "Toma Remédio" },
+      { field: "alergicoRemedio", label: "Alérgico a Remédio" },
+      { field: "nomeResponsavel", label: "Nome do Responsável" },
+      { field: "enderecoResponsavel", label: "Endereço do Responsável" },
+      { field: "cpfResponsavel", label: "CPF do Responsável" },
+      { field: "contatoResponsavel", label: "Contato do Responsável" },
+    ];
+
+    const emptyFields = requiredFields.filter(({ field }) => {
+      const value = formData[field as keyof typeof formData];
+      return !value || (typeof value === "string" && value.trim() === "");
+    });
+
+    if (emptyFields.length > 0) {
+      const fieldNames = emptyFields.map(({ label }) => label).join(", ");
+      setError(`Os seguintes campos são obrigatórios: ${fieldNames}`);
+      return false;
+    }
+
+    // Validações específicas
+    if (formData.senha.length < 6) {
+      setError("A senha deve ter pelo menos 6 caracteres.");
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Por favor, insira um email válido.");
+      return false;
+    }
+
+    if (parseInt(formData.altura) <= 0 || parseInt(formData.altura) > 300) {
+      setError("Altura deve ser um valor válido entre 1 e 300 cm.");
+      return false;
+    }
+
+    if (parseFloat(formData.peso) <= 0 || parseFloat(formData.peso) > 500) {
+      setError("Peso deve ser um valor válido entre 1 e 500 kg.");
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    console.log("=== DEBUG FORMULÁRIO CADASTRO2 ===");
+    console.log("Dados do formulário antes do envio:", formData);
 
     // Verificar se os termos foram aceitos
     if (!formData.aceitaTermos) {
@@ -109,16 +177,24 @@ export default function CadastroPage() {
       return;
     }
 
+    // Validar todos os campos obrigatórios
+    if (!validateForm()) {
+      return;
+    }
+
     try {
-      // Preparar dados para o perfil do usuário
+      setError(""); // Limpar erro anterior
+      console.log("🚀 INICIANDO CADASTRO COMPLETO...");
+
+      // Preparar dados para o perfil do usuário - TODOS OS CAMPOS PREENCHIDOS
       const userData = {
-        nome_completo: formData.nomeCompleto,
+        nome_completo: formData.nomeCompleto.trim(),
         data_nascimento: formData.dataNascimento,
-        altura: parseInt(formData.altura) || undefined,
-        peso: parseFloat(formData.peso) || undefined,
+        altura: parseInt(formData.altura),
+        peso: parseFloat(formData.peso),
         escolaridade: formData.escolaridade,
         cor_faixa: formData.corFaixa,
-        escola: formData.escola,
+        escola: formData.escola.trim(),
         contato: formData.contato,
         endereco: formData.endereco,
         instagram: formData.instagram,
@@ -133,24 +209,63 @@ export default function CadastroPage() {
         contato_responsavel: formData.contatoResponsavel,
       };
 
-      const result = await signUp(formData.email, formData.senha, userData);
+      console.log("=== DEBUG FORMULÁRIO CADASTRO2 DETALHADO ===");
+      console.log("📧 Email:", formData.email.trim());
+      console.log("🔐 Senha:", formData.senha ? "✓ Preenchida" : "❌ Vazia");
+      console.log("📝 Campos preenchidos:", Object.keys(userData).length);
+      console.log("📋 Dados completos:", userData);
+
+      // Exibir loading mais cedo
+      console.log("⏳ Chamando função signUp...");
+
+      const result = await signUp(
+        formData.email.trim(),
+        formData.senha,
+        userData
+      );
+
+      console.log("✅ Resultado do signUp recebido:", result);
 
       if (result.error) {
-        setError(result.error);
+        console.error("❌ ERRO no cadastro:", result.error);
+        setError(`❌ Erro no cadastro: ${result.error}`);
+
+        // Scroll para mostrar o erro
+        document
+          .querySelector(".bg-red-50")
+          ?.scrollIntoView({ behavior: "smooth" });
       } else {
+        console.log("🎉 CADASTRO REALIZADO COM SUCESSO!");
         setSuccess(
-          "Cadastro realizado com sucesso! Verifique seu email para confirmar sua conta."
+          "✅ Cadastro completo realizado com sucesso! Verifique seu email para confirmar sua conta."
         );
+
+        // Scroll para mostrar o sucesso
+        document
+          .querySelector(".bg-green-50")
+          ?.scrollIntoView({ behavior: "smooth" });
+
         setTimeout(() => {
+          console.log("🔄 Redirecionando para login...");
           router.push("/login");
         }, 3000);
       }
-    } catch {
-      setError("Erro inesperado ao realizar cadastro. Tente novamente.");
+    } catch (error) {
+      console.error("💥 ERRO CRÍTICO durante o cadastro:", error);
+      setError(
+        `💥 Erro crítico: ${
+          error instanceof Error ? error.message : "Erro desconhecido"
+        }`
+      );
+
+      // Scroll para mostrar o erro
+      setTimeout(() => {
+        document
+          .querySelector(".bg-red-50")
+          ?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     }
   };
-
-  // Array removido - agora usando faixas do banco de dados
 
   const tiposSanguineos = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -165,7 +280,7 @@ export default function CadastroPage() {
         </div>
       }
     >
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 py-8 pt-20">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 pt-20">
         <div className="max-w-4xl mx-auto px-6">
           {/* Botão Voltar */}
           <div className="mb-6">
@@ -182,12 +297,22 @@ export default function CadastroPage() {
           <div className="bg-white rounded-xl shadow-lg p-8 mb-8 border border-primary-200">
             <div className="text-center">
               <h1 className="text-4xl font-bold text-primary-950 mb-4">
-                🥋 <span className="text-yellow-600">JUDÔ SANDOKAN</span> -
-                FICHA DE INSCRIÇÃO
+                🥋{" "}
+                <span className="text-yellow-600 text-red-600">
+                  JUDÔ SANDOKAN
+                </span>{" "}
+                - CADASTRO COMPLETO
               </h1>
               <p className="text-lg text-primary-800">
-                Preencha todos os campos para se juntar ao nosso dojo
+                ⚠️ <strong>ATENÇÃO:</strong> Todos os campos são obrigatórios
+                neste formulário
               </p>
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-medium">
+                  📝 Este é o formulário de cadastro completo onde nenhum campo
+                  pode ficar em branco
+                </p>
+              </div>
             </div>
           </div>
 
@@ -195,7 +320,8 @@ export default function CadastroPage() {
             {/* Dados Pessoais */}
             <div className="bg-white rounded-xl shadow-lg p-8 border border-primary-200">
               <h2 className="text-2xl font-semibold text-primary-950 mb-6 flex items-center">
-                Dados Pessoais
+                📋 Dados Pessoais{" "}
+                <span className="text-red-500 ml-2">*Todos Obrigatórios*</span>
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -208,6 +334,7 @@ export default function CadastroPage() {
                     name="nomeCompleto"
                     value={formData.nomeCompleto}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Digite seu nome completo"
                   />
@@ -222,6 +349,7 @@ export default function CadastroPage() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="seu@email.com"
                   />
@@ -236,8 +364,10 @@ export default function CadastroPage() {
                     name="senha"
                     value={formData.senha}
                     onChange={handleInputChange}
+                    required
+                    minLength={6}
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
-                    placeholder="Digite sua senha"
+                    placeholder="Digite sua senha (mín. 6 caracteres)"
                   />
                 </div>
 
@@ -250,19 +380,23 @@ export default function CadastroPage() {
                     name="dataNascimento"
                     value={formData.dataNascimento}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Altura (cm)
+                    Altura (cm) *
                   </label>
                   <input
                     type="number"
                     name="altura"
                     value={formData.altura}
                     onChange={handleInputChange}
+                    required
+                    min="1"
+                    max="300"
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Ex: 170"
                   />
@@ -270,26 +404,31 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Peso (kg)
+                    Peso (kg) *
                   </label>
                   <input
                     type="number"
                     name="peso"
                     value={formData.peso}
                     onChange={handleInputChange}
+                    required
+                    min="1"
+                    max="500"
+                    step="0.1"
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
-                    placeholder="Ex: 70"
+                    placeholder="Ex: 70.5"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Escolaridade
+                    Escolaridade *
                   </label>
                   <select
                     name="escolaridade"
                     value={formData.escolaridade}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                   >
                     <option value="">Selecione...</option>
@@ -324,6 +463,7 @@ export default function CadastroPage() {
                       name="corFaixa"
                       value={formData.corFaixa}
                       onChange={handleInputChange}
+                      required
                       className="flex-1 px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     >
                       <option value="">Escolha a cor da faixa</option>
@@ -357,6 +497,7 @@ export default function CadastroPage() {
                     name="escola"
                     value={formData.escola}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Nome da escola/dojo"
                   />
@@ -371,40 +512,25 @@ export default function CadastroPage() {
                     name="contato"
                     value={formData.contato}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="(00) 00000-0000"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <div className="flex items-center mb-3">
-                    <input
-                      type="checkbox"
-                      name="enderecoIgualResponsavel"
-                      checked={formData.enderecoIgualResponsavel}
-                      onChange={handleInputChange}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-950 border-primary-300 rounded"
-                    />
-                    <label className="ml-2 text-sm text-primary-900">
-                      Mesmo endereço do responsável
-                    </label>
-                  </div>
-                  {!formData.enderecoIgualResponsavel && (
-                    <>
-                      <label className="block text-sm font-medium text-primary-900 mb-2">
-                        Endereço *
-                      </label>
-                      <textarea
-                        name="endereco"
-                        value={formData.endereco}
-                        onChange={handleInputChange}
-                        required={!formData.enderecoIgualResponsavel}
-                        className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
-                        placeholder="Rua, número, bairro, cidade, CEP"
-                        rows={3}
-                      />
-                    </>
-                  )}
+                  <label className="block text-sm font-medium text-primary-900 mb-2">
+                    Endereço *
+                  </label>
+                  <textarea
+                    name="endereco"
+                    value={formData.endereco}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
+                    placeholder="Rua, número, bairro, cidade, CEP"
+                    rows={3}
+                  />
                 </div>
               </div>
             </div>
@@ -418,19 +544,21 @@ export default function CadastroPage() {
                   height={32}
                   className="mr-3 text-primary-950"
                 />
-                Redes Sociais
+                Redes Sociais{" "}
+                <span className="text-red-500 ml-2">*Todas Obrigatórias*</span>
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Instagram
+                    Instagram *
                   </label>
                   <input
                     type="url"
                     name="instagram"
                     value={formData.instagram}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="https://instagram.com/seu_usuario"
                   />
@@ -438,13 +566,14 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Facebook
+                    Facebook *
                   </label>
                   <input
                     type="url"
                     name="facebook"
                     value={formData.facebook}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="https://facebook.com/seu_perfil"
                   />
@@ -452,13 +581,14 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    TikTok
+                    TikTok *
                   </label>
                   <input
                     type="url"
                     name="tiktok"
                     value={formData.tiktok}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="https://tiktok.com/@seu_usuario"
                   />
@@ -475,18 +605,20 @@ export default function CadastroPage() {
                   height={32}
                   className="mr-3 text-primary-950"
                 />
-                Informações de Saúde
+                Informações de Saúde{" "}
+                <span className="text-red-500 ml-2">*Todas Obrigatórias*</span>
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Tipo Sanguíneo
+                    Tipo Sanguíneo *
                   </label>
                   <select
                     name="tipoSanguineo"
                     value={formData.tipoSanguineo}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                   >
                     <option value="">Selecione...</option>
@@ -500,13 +632,14 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Toma algum remédio?
+                    Toma algum remédio? *
                   </label>
                   <input
                     type="text"
                     name="tomaRemedio"
                     value={formData.tomaRemedio}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Se SIM, qual o nome | Se NÃO, digite 'Não'"
                   />
@@ -514,13 +647,14 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Alérgico a algum remédio?
+                    Alérgico a algum remédio? *
                   </label>
                   <input
                     type="text"
                     name="alergicoRemedio"
                     value={formData.alergicoRemedio}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Se SIM, qual o nome | Se NÃO, digite 'Não'"
                   />
@@ -531,19 +665,21 @@ export default function CadastroPage() {
             {/* Dados do Responsável */}
             <div className="bg-white rounded-xl shadow-lg p-8 border border-primary-200">
               <h2 className="text-2xl font-semibold text-primary-950 mb-6 flex items-center">
-                Dados dos Pais ou Responsável
+                👨‍👩‍👧‍👦 Dados dos Pais ou Responsável{" "}
+                <span className="text-red-500 ml-2">*Todos Obrigatórios*</span>
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Nome do Responsável
+                    Nome do Responsável *
                   </label>
                   <input
                     type="text"
                     name="nomeResponsavel"
                     value={formData.nomeResponsavel}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Nome completo do responsável"
                   />
@@ -551,12 +687,13 @@ export default function CadastroPage() {
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Endereço do Responsável
+                    Endereço do Responsável *
                   </label>
                   <textarea
                     name="enderecoResponsavel"
                     value={formData.enderecoResponsavel}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="Rua, número, bairro, cidade, CEP"
                     rows={3}
@@ -565,13 +702,14 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    CPF do Responsável
+                    CPF do Responsável *
                   </label>
                   <input
                     type="text"
                     name="cpfResponsavel"
                     value={formData.cpfResponsavel}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="000.000.000-00"
                   />
@@ -579,13 +717,14 @@ export default function CadastroPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-primary-900 mb-2">
-                    Contato do Responsável
+                    Contato do Responsável *
                   </label>
                   <input
                     type="tel"
                     name="contatoResponsavel"
                     value={formData.contatoResponsavel}
                     onChange={handleInputChange}
+                    required
                     className="w-full px-4 py-3 rounded-lg border border-primary-300 focus:ring-2 focus:ring-primary-950 focus:border-primary-950 transition-colors"
                     placeholder="(00) 00000-0000"
                   />
@@ -628,7 +767,7 @@ export default function CadastroPage() {
             {/* Termos e Condições */}
             <div className="bg-white rounded-xl shadow-lg p-8 border border-primary-200">
               <h2 className="text-2xl font-semibold text-primary-950 mb-6 flex items-center">
-                Termos e Condições
+                📜 Termos e Condições
               </h2>
 
               <div className="flex items-start space-x-4 mt-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
@@ -667,13 +806,13 @@ export default function CadastroPage() {
                   className={`px-12 py-4 rounded-lg font-semibold text-lg transition-colors duration-200 shadow-lg hover:shadow-xl ${
                     loading || !formData.aceitaTermos
                       ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-primary-950 hover:bg-primary-900 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
                   }`}
                 >
                   {loading ? (
                     <div className="flex items-center">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Processando...
+                      Processando Cadastro Completo...
                     </div>
                   ) : (
                     <div className="flex items-center">
@@ -683,15 +822,20 @@ export default function CadastroPage() {
                         height={24}
                         className="mr-2"
                       />
-                      Finalizar Inscrição
+                      ✅ Finalizar Cadastro Completo
                     </div>
                   )}
                 </button>
                 <p className="mt-4 text-sm text-primary-700">
                   {!formData.aceitaTermos
                     ? "Você deve aceitar os termos para finalizar a inscrição"
-                    : "Clique para finalizar sua inscrição no dojo"}
+                    : "Clique para finalizar seu cadastro completo no dojo"}
                 </p>
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700 font-medium text-sm">
+                    ⚠️ Lembre-se: Todos os campos devem estar preenchidos!
+                  </p>
+                </div>
               </div>
             </div>
           </form>

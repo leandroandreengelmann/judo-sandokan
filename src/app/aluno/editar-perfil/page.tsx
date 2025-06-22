@@ -13,6 +13,7 @@ export default function EditarPerfilPage() {
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const [formData, setFormData] = useState({
+    email: "",
     nome_completo: "",
     data_nascimento: "",
     altura: "",
@@ -48,6 +49,7 @@ export default function EditarPerfilPage() {
 
     // Preencher formulário com dados atuais
     setFormData({
+      email: user.email || "",
       nome_completo: user.nome_completo || "",
       data_nascimento: user.data_nascimento || "",
       altura: user.altura?.toString() || "",
@@ -89,6 +91,22 @@ export default function EditarPerfilPage() {
         altura: formData.altura ? parseInt(formData.altura) : undefined,
         peso: formData.peso ? parseFloat(formData.peso) : undefined,
       };
+
+      // Se o email foi alterado, atualizar na auth também
+      if (dataToUpdate.email && dataToUpdate.email !== user?.email) {
+        const { supabase } = await import("@/lib/supabase");
+        const { error: authError } = await supabase.auth.updateUser({
+          email: dataToUpdate.email as string,
+        });
+
+        if (authError) {
+          setMessage({
+            type: "error",
+            text: `Erro ao atualizar email: ${authError.message}`,
+          });
+          return;
+        }
+      }
 
       const result = await updateProfile(dataToUpdate);
 
@@ -174,8 +192,26 @@ export default function EditarPerfilPage() {
                 📝 Dados Pessoais
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-primary-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    placeholder="Digite seu email"
+                    required
+                    className="w-full px-4 py-3 border border-primary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white text-primary-900"
+                  />
+                  <p className="mt-1 text-xs text-primary-600">
+                    ⚠️ Alterar o email exigirá nova confirmação por email
+                  </p>
+                </div>
+
                 {/* Nome Completo */}
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-primary-700 mb-2">
                     Nome Completo *
                   </label>

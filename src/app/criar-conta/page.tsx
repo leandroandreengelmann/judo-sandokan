@@ -80,6 +80,43 @@ export default function CriarContaPage() {
     loadFaixas();
   }, []);
 
+  // Funções de formatação
+  const formatCPF = (value: string) => {
+    // Remove tudo que não é dígito
+    const cleanValue = value.replace(/\D/g, "");
+
+    // Aplica a máscara do CPF
+    if (cleanValue.length <= 11) {
+      return cleanValue
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    }
+    return cleanValue
+      .slice(0, 11)
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  };
+
+  const formatPhone = (value: string) => {
+    // Remove tudo que não é dígito
+    const cleanValue = value.replace(/\D/g, "");
+
+    // Aplica a máscara do telefone
+    if (cleanValue.length <= 10) {
+      // Formato: (11) 1234-5678
+      return cleanValue
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d)/, "$1-$2");
+    } else {
+      // Formato: (11) 91234-5678
+      return cleanValue
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{5})(\d)/, "$1-$2");
+    }
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -90,11 +127,20 @@ export default function CriarContaPage() {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
-      // Aplicar trim apenas em campos específicos
-      const shouldTrim = ["email", "nomeCompleto", "escola"].includes(name);
+      let processedValue = value;
+
+      // Aplicar formatações específicas
+      if (name === "cpfResponsavel") {
+        processedValue = formatCPF(value);
+      } else if (name === "contato" || name === "contatoResponsavel") {
+        processedValue = formatPhone(value);
+      } else if (name === "email") {
+        processedValue = value.trim();
+      }
+
       setFormData((prev) => ({
         ...prev,
-        [name]: shouldTrim ? value.trim() : value,
+        [name]: processedValue,
       }));
     }
   };
@@ -106,6 +152,11 @@ export default function CriarContaPage() {
     setLoading(true);
 
     console.log("🚀 INICIANDO PROCESSO DE CADASTRO...");
+    console.log("📌 Verificando Supabase:", {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseClient: !!supabase,
+    });
 
     try {
       // Verificar se os termos foram aceitos
@@ -140,7 +191,13 @@ export default function CriarContaPage() {
       console.log("👤 Nome:", formData.nomeCompleto.trim());
 
       // 1. Criar usuário no auth.users (sem confirmação de email)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      console.log(
+        "📧 Tentando criar usuário com email:",
+        formData.email.trim()
+      );
+
+      // Adicionar timeout para evitar travamento
+      const signUpPromise = supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.senha,
         options: {
@@ -152,122 +209,162 @@ export default function CriarContaPage() {
         },
       });
 
-      if (authError) {
-        // Se der rate limit ou erro de email, mostra mensagem específica
+      // Timeout de 10 segundos
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error("Timeout: A requisição demorou muito para responder")
+            ),
+          10000
+        )
+      );
+
+      console.log("⏳ Aguardando resposta do Supabase...");
+
+      try {
+        const result = (await Promise.race([
+          signUpPromise,
+          timeoutPromise,
+        ])) as { data: any; error: any };
+
+        const { data: authData, error: authError } = result;
+
+        console.log("📊 Resultado do signUp:", {
+          success: !!authData?.user,
+          userId: authData?.user?.id,
+          error: authError?.message,
+        });
+
+        if (authError) {
+          // Se der rate limit ou erro de email, mostra mensagem específica
+          if (
+            authError.message.includes("rate limit") ||
+            authError.message.includes("email rate limit") ||
+            authError.message.includes("too many requests")
+          ) {
+            setError(
+              "⏰ Muitas tentativas de cadastro detectadas. Por favor, aguarde alguns minutos antes de tentar novamente. Isso é uma proteção de segurança do sistema."
+            );
+            return;
+          }
+          throw authError;
+        }
+
+        if (!authData.user?.id) {
+          throw new Error("Erro ao criar usuário");
+        }
+
+        console.log("✅ Usuário criado com sucesso!");
+        console.log("🆔 ID do usuário:", authData.user.id);
+        console.log("📝 Preparando dados do perfil...");
+
+        // 2. Atualizar dados no user_profiles (trigger já criou o registro básico)
+        const userData = {
+          nome_completo: formData.nomeCompleto.trim(),
+          data_nascimento: formData.dataNascimento,
+          altura: formData.altura ? parseInt(formData.altura) : null,
+          peso: formData.peso ? parseFloat(formData.peso) : null,
+          escolaridade: formData.escolaridade || "",
+          cor_faixa: formData.corFaixa || "",
+          escola: formData.escola?.trim() || "",
+          contato: formData.contato || "",
+          endereco: formData.endereco || "",
+          instagram: formData.instagram || "",
+          facebook: formData.facebook || "",
+          tiktok: formData.tiktok || "",
+          tipo_sanguineo: formData.tipoSanguineo || "",
+          toma_remedio: formData.tomaRemedio || "",
+          alergico_remedio: formData.alergicoRemedio || "",
+          nome_responsavel: formData.nomeResponsavel || "",
+          endereco_responsavel: formData.enderecoResponsavel || "",
+          cpf_responsavel: formData.cpfResponsavel || "",
+          contato_responsavel: formData.contatoResponsavel || "",
+          nivel_usuario: "aluno",
+          aprovado: false,
+        };
+
+        // Usar UPDATE em vez de INSERT porque o trigger já criou o registro
+        const { error: profileError } = await supabase
+          .from("user_profiles")
+          .update(userData)
+          .eq("id", authData.user.id);
+
+        if (profileError) {
+          console.error("Erro ao atualizar perfil:", profileError);
+          // Se falhar o update, tentar o método RPC como fallback
+          const { error: rpcError } = await supabase.rpc(
+            "update_profile_on_signup",
+            {
+              user_id: authData.user.id,
+              profile_data: userData,
+            }
+          );
+
+          if (rpcError) {
+            console.error("Erro no método RPC também:", rpcError);
+            throw new Error("Erro ao salvar dados do perfil. Tente novamente.");
+          }
+        }
+
+        console.log("✅ Perfil atualizado com sucesso!");
+        console.log("🎉 CADASTRO COMPLETO!");
+
+        setSuccess(
+          "🎉 Conta criada com sucesso! Você já pode fazer login no sistema."
+        );
+
+        // Scroll para mostrar mensagem de sucesso
+        setTimeout(() => {
+          document.querySelector(".bg-green-50")?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }, 100);
+
+        // Limpar formulário
+        setFormData({
+          nomeCompleto: "",
+          email: "",
+          senha: "",
+          dataNascimento: "",
+          altura: "",
+          peso: "",
+          escolaridade: "",
+          corFaixa: "",
+          escola: "",
+          contato: "",
+          endereco: "",
+          instagram: "",
+          facebook: "",
+          tiktok: "",
+          tipoSanguineo: "",
+          tomaRemedio: "",
+          alergicoRemedio: "",
+          nomeResponsavel: "",
+          enderecoResponsavel: "",
+          cpfResponsavel: "",
+          contatoResponsavel: "",
+          aceitaTermos: false,
+        });
+
+        // Redirecionar após 3 segundos
+        setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+      } catch (timeoutError) {
         if (
-          authError.message.includes("rate limit") ||
-          authError.message.includes("email rate limit") ||
-          authError.message.includes("too many requests")
+          timeoutError instanceof Error &&
+          timeoutError.message.includes("Timeout")
         ) {
+          console.error("⏰ Timeout na criação do usuário");
           setError(
-            "⏰ Muitas tentativas de cadastro detectadas. Por favor, aguarde alguns minutos antes de tentar novamente. Isso é uma proteção de segurança do sistema."
+            "A conexão com o servidor está demorando muito. Por favor, verifique sua internet e tente novamente."
           );
           return;
         }
-        throw authError;
+        throw timeoutError;
       }
-
-      if (!authData.user?.id) {
-        throw new Error("Erro ao criar usuário");
-      }
-
-      console.log("✅ Usuário criado com sucesso!");
-      console.log("🆔 ID do usuário:", authData.user.id);
-      console.log("📝 Preparando dados do perfil...");
-
-      // 2. Atualizar dados no user_profiles (trigger já criou o registro básico)
-      const userData = {
-        nome_completo: formData.nomeCompleto.trim(),
-        data_nascimento: formData.dataNascimento,
-        altura: formData.altura ? parseInt(formData.altura) : null,
-        peso: formData.peso ? parseFloat(formData.peso) : null,
-        escolaridade: formData.escolaridade || "",
-        cor_faixa: formData.corFaixa || "",
-        escola: formData.escola?.trim() || "",
-        contato: formData.contato || "",
-        endereco: formData.endereco || "",
-        instagram: formData.instagram || "",
-        facebook: formData.facebook || "",
-        tiktok: formData.tiktok || "",
-        tipo_sanguineo: formData.tipoSanguineo || "",
-        toma_remedio: formData.tomaRemedio || "",
-        alergico_remedio: formData.alergicoRemedio || "",
-        nome_responsavel: formData.nomeResponsavel || "",
-        endereco_responsavel: formData.enderecoResponsavel || "",
-        cpf_responsavel: formData.cpfResponsavel || "",
-        contato_responsavel: formData.contatoResponsavel || "",
-        nivel_usuario: "aluno",
-        aprovado: false,
-      };
-
-      // Usar UPDATE em vez de INSERT porque o trigger já criou o registro
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .update(userData)
-        .eq("id", authData.user.id);
-
-      if (profileError) {
-        console.error("Erro ao atualizar perfil:", profileError);
-        // Se falhar o update, tentar o método RPC como fallback
-        const { error: rpcError } = await supabase.rpc(
-          "update_profile_on_signup",
-          {
-            user_id: authData.user.id,
-            profile_data: userData,
-          }
-        );
-
-        if (rpcError) {
-          console.error("Erro no método RPC também:", rpcError);
-          throw new Error("Erro ao salvar dados do perfil. Tente novamente.");
-        }
-      }
-
-      console.log("✅ Perfil atualizado com sucesso!");
-      console.log("🎉 CADASTRO COMPLETO!");
-
-      setSuccess(
-        "🎉 Conta criada com sucesso! Você já pode fazer login no sistema."
-      );
-
-      // Scroll para mostrar mensagem de sucesso
-      setTimeout(() => {
-        document.querySelector(".bg-green-50")?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }, 100);
-
-      // Limpar formulário
-      setFormData({
-        nomeCompleto: "",
-        email: "",
-        senha: "",
-        dataNascimento: "",
-        altura: "",
-        peso: "",
-        escolaridade: "",
-        corFaixa: "",
-        escola: "",
-        contato: "",
-        endereco: "",
-        instagram: "",
-        facebook: "",
-        tiktok: "",
-        tipoSanguineo: "",
-        tomaRemedio: "",
-        alergicoRemedio: "",
-        nomeResponsavel: "",
-        enderecoResponsavel: "",
-        cpfResponsavel: "",
-        contatoResponsavel: "",
-        aceitaTermos: false,
-      });
-
-      // Redirecionar após 3 segundos
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
     } catch (error: unknown) {
       console.error("❌ Erro durante o cadastro:", error);
 
@@ -529,7 +626,7 @@ export default function CriarContaPage() {
                     value={formData.contato}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-primary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                    placeholder="(11) 99999-9999"
+                    placeholder="(66) 99999-9999"
                   />
                 </div>
 
@@ -695,7 +792,7 @@ export default function CriarContaPage() {
                     value={formData.contatoResponsavel}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-primary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                    placeholder="(11) 99999-9999"
+                    placeholder="(66) 99999-9999"
                   />
                 </div>
                 <div>
@@ -769,30 +866,177 @@ export default function CriarContaPage() {
           {/* Modal de Termos e Condições */}
           {showTermsModal && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg max-w-2xl max-h-96 overflow-y-auto p-6">
-                <h3 className="text-xl font-bold mb-4">Termos e Condições</h3>
-                <div className="text-sm text-gray-700 space-y-2">
-                  <p>
-                    Ao se cadastrar no sistema do Judô Sandokan, você concorda
-                    com:
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Fornecer informações verdadeiras e atualizadas</li>
-                    <li>Seguir as regras e regulamentos do dojo</li>
-                    <li>Respeitar outros alunos e professores</li>
-                    <li>Manter a confidencialidade das informações do dojo</li>
-                    <li>Participar das atividades com responsabilidade</li>
-                  </ul>
-                  <p>
-                    Seus dados pessoais serão utilizados apenas para fins
-                    administrativos e educacionais, conforme nossa política de
-                    privacidade.
-                  </p>
+              <div className="bg-white rounded-lg max-w-4xl max-h-[80vh] overflow-y-auto p-6">
+                <h3 className="text-2xl font-bold mb-6 text-center text-primary-950">
+                  🥋 DOJÔ DE JUDÔ SANDOKAN MATUPÁ-MT
+                </h3>
+
+                <div className="text-sm text-gray-700 space-y-4">
+                  {/* Informações da Entidade */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-bold mb-2">INFORMAÇÕES DA ENTIDADE</h4>
+                    <p>
+                      <strong>Endereço:</strong> Linha do Ranário II, Chácara
+                      Campo Cerrado, Matupá-MT
+                    </p>
+                    <p>
+                      <strong>CEP:</strong> 78525-000
+                    </p>
+                    <p>
+                      <strong>CNPJ:</strong> Em processo - Inscrição Estadual:
+                      Isento
+                    </p>
+                    <p>
+                      <strong>Contato:</strong> (66) 9 9909-0290
+                    </p>
+                    <p>
+                      <strong>Professor Orientador:</strong> David Richard Servi
+                    </p>
+                    <p>
+                      <strong>Fundação:</strong> 01 de janeiro de 2022
+                    </p>
+                    <p>
+                      <strong>Filiação:</strong> Dojô Sandokan Diamantino-MT,
+                      Liga de Judô Portal da Amazônia e Confederação Brasileira
+                      de Judô
+                    </p>
+                  </div>
+
+                  {/* Termo de Responsabilidade */}
+                  <div>
+                    <h4 className="font-bold mb-2">
+                      TERMO DE RESPONSABILIDADE
+                    </h4>
+                    <p className="mb-2">
+                      Ao se cadastrar no sistema do Dojô de Judô Sandokan
+                      Matupá-MT, o aluno (ou seu responsável legal, no caso de
+                      menor de idade) declara estar ciente das seguintes
+                      condições:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 mb-3">
+                      <li>
+                        Estar ciente das condições físicas e de saúde
+                        necessárias para a prática do judô
+                      </li>
+                      <li>
+                        Assumir responsabilidade por eventuais problemas de
+                        saúde, torções ou lesões decorrentes da prática
+                        esportiva
+                      </li>
+                      <li>
+                        Reconhecer que o judô é um esporte de contato com riscos
+                        inerentes à modalidade
+                      </li>
+                      <li>
+                        Isentar professores, Dojô Sandokan e demais envolvidos
+                        de qualquer ônus decorrente da prática
+                      </li>
+                      <li>
+                        Informar ao professor responsável sobre qualquer
+                        impedimento médico ou físico
+                      </li>
+                      <li>
+                        Fornecer informações verdadeiras e atualizadas no
+                        cadastro
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Termo de Compromisso */}
+                  <div>
+                    <h4 className="font-bold mb-2">TERMO DE COMPROMISSO</h4>
+                    <p className="mb-2">O aluno se compromete a:</p>
+                    <ul className="list-disc pl-5 space-y-1 mb-3">
+                      <li>
+                        Zelar pelo uso adequado dos materiais fornecidos
+                        (kimono, camiseta, mochila)
+                      </li>
+                      <li>
+                        Cumprir todas as determinações estabelecidas pelos
+                        professores e educadores
+                      </li>
+                      <li>
+                        Respeitar outros alunos, professores e a filosofia do
+                        judô
+                      </li>
+                      <li>
+                        Participar das atividades com responsabilidade e
+                        dedicação
+                      </li>
+                      <li>
+                        Devolver os materiais em caso de desistência ou
+                        desligamento
+                      </li>
+                    </ul>
+                    <p className="text-red-600 font-medium">
+                      <strong>Importante:</strong> Em caso de dano, perda ou não
+                      devolução dos materiais, o responsável deverá arcar com o
+                      custo de R$ 350,00.
+                    </p>
+                  </div>
+
+                  {/* Termo de Uso de Imagem */}
+                  <div>
+                    <h4 className="font-bold mb-2">
+                      AUTORIZAÇÃO DE USO DE IMAGEM
+                    </h4>
+                    <p className="mb-2">
+                      Ao aceitar estes termos, o aluno (ou responsável) autoriza
+                      o uso de sua imagem para:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 mb-3">
+                      <li>
+                        Campanhas promocionais e institucionais do Dojô Sandokan
+                        Matupá
+                      </li>
+                      <li>
+                        Documentação de treinamentos, competições e eventos
+                      </li>
+                      <li>
+                        Divulgação em mídias sociais, site, outdoor, folhetos e
+                        materiais gráficos
+                      </li>
+                      <li>Mídia eletrônica (televisão, rádio, internet)</li>
+                      <li>Promoção da modalidade de judô</li>
+                    </ul>
+                    <p className="text-sm">
+                      A autorização é concedida gratuitamente, abrangendo
+                      território nacional e internacional.
+                    </p>
+                  </div>
+
+                  {/* Política de Privacidade */}
+                  <div>
+                    <h4 className="font-bold mb-2">POLÍTICA DE PRIVACIDADE</h4>
+                    <p className="mb-2">
+                      Seus dados pessoais serão utilizados para:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 mb-3">
+                      <li>Administração e controle de matrículas</li>
+                      <li>Comunicação sobre atividades e eventos</li>
+                      <li>Emissão de certificados e documentos</li>
+                      <li>Controle de saúde e segurança dos praticantes</li>
+                      <li>Relatórios para entidades federativas do judô</li>
+                    </ul>
+                    <p className="text-sm">
+                      Os dados não serão compartilhados com terceiros sem
+                      autorização, exceto quando exigido por lei ou para
+                      cumprimento das atividades esportivas.
+                    </p>
+                  </div>
+
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <p className="text-center font-medium text-gray-800">
+                      柔道 - &quot;Caminho Suave&quot; - Filosofia de vida
+                      através da arte marcial
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-end mt-6">
+
+                <div className="flex justify-center mt-6">
                   <button
                     onClick={() => setShowTermsModal(false)}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-semibold"
                   >
                     Fechar
                   </button>

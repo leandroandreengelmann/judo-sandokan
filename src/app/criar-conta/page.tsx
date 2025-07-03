@@ -226,7 +226,10 @@ export default function CriarContaPage() {
         const result = (await Promise.race([
           signUpPromise,
           timeoutPromise,
-        ])) as { data: any; error: any };
+        ])) as {
+          data: { user?: { id: string } };
+          error: { message: string } | null;
+        };
 
         const { data: authData, error: authError } = result;
 

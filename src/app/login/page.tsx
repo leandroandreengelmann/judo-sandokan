@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -13,8 +13,23 @@ export default function LoginPage() {
     senha: "",
   });
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Verificar se há mensagem de sucesso na URL
+    const urlMessage = searchParams.get("message");
+    if (urlMessage) {
+      setMessage(urlMessage);
+      // Limpar a URL após 5 segundos
+      setTimeout(() => {
+        setMessage("");
+        router.replace("/login");
+      }, 5000);
+    }
+  }, [searchParams, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -90,6 +105,22 @@ export default function LoginPage() {
                   />
                   <p className="text-red-800 text-lg font-medium leading-relaxed">
                     {error}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <div className="flex items-start">
+                  <Icon
+                    icon="heroicons:check-circle"
+                    width={28}
+                    height={28}
+                    className="text-green-600 mr-3 mt-1 flex-shrink-0"
+                  />
+                  <p className="text-green-800 text-lg font-medium leading-relaxed">
+                    {message}
                   </p>
                 </div>
               </div>

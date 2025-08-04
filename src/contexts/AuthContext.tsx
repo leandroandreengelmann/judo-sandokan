@@ -30,14 +30,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 🔧 FIX: Timeout para evitar loading infinito
+    const loadingTimeout = setTimeout(() => {
+      console.warn("⏰ Loading timeout - forçando reset do loading state");
+      setLoading(false);
+    }, 10000); // 10 segundos timeout
+
     // Buscar sessão atual
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        loadUserProfile(session.user);
+        loadUserProfile(session.user).finally(() => {
+          clearTimeout(loadingTimeout);
+        });
       } else {
         setLoading(false);
+        clearTimeout(loadingTimeout);
       }
+    }).catch((error) => {
+      console.error("Erro ao buscar sessão:", error);
+      setLoading(false);
+      clearTimeout(loadingTimeout);
     });
 
     // Escutar mudanças de autenticação
@@ -53,16 +66,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
   const loadUserProfile = async (authUser: User) => {
     try {
-      const { data: profile, error } = await supabase
+      console.log("🔄 Carregando perfil do usuário:", authUser.id);
+      
+      // 🔧 FIX: Timeout para evitar travamento na consulta
+      const profilePromise = supabase
         .from("user_profiles")
         .select("*")
         .eq("id", authUser.id)
         .single();
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Timeout na consulta do perfil")), 8000);
+      });
+
+      const { data: profile, error } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
 
       if (error) {
         // PGRST116 significa "nenhum registro encontrado" - é esperado para novos usuários
@@ -70,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Erro ao carregar perfil:", error);
         }
 
+        console.log("📝 Criando perfil básico para usuário:", authUser.id);
         // Se não existe perfil, criar um básico
         setUser({
           id: authUser.id,
@@ -81,10 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           nivel_usuario: "aluno",
           aprovado: false,
         });
-        setLoading(false);
         return;
       }
 
+      console.log("✅ Perfil carregado com sucesso:", profile);
       // Se o perfil existe, usar os dados
       const userData = {
         id: authUser.id,
@@ -116,8 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       setUser(userData);
     } catch (error) {
-      console.error("Erro inesperado ao carregar perfil:", error);
-      // Em caso de erro, definir dados mínimos
+      console.error("❌ Erro inesperado ao carregar perfil:", error);
+      // 🔧 FIX: Em caso de erro, sempre definir dados mínimos e continuar
       setUser({
         id: authUser.id,
         email: authUser.email || "",
@@ -129,7 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         aprovado: false,
       });
     } finally {
+      // 🔧 FIX: SEMPRE resetar loading, independente do que aconteça
       setLoading(false);
+      console.log("🏁 Loading state resetado");
     }
   };
 
@@ -250,12 +281,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single();
 
         if (profileError) {
+          setLoading(false); // 🔧 FIX: Resetar loading em caso de erro de perfil
           return { error: "Erro ao verificar perfil do usuário" };
         }
 
         // Se for aluno e não estiver aprovado, bloquear login
         if (profile.nivel_usuario === "aluno" && !profile.aprovado) {
           await supabase.auth.signOut();
+          setLoading(false); // 🔧 FIX: Resetar loading antes de retornar
           return {
             error:
               "Sua conta ainda não foi aprovada pelo mestre. Aguarde a aprovação.",

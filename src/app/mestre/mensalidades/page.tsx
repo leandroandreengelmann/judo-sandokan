@@ -135,6 +135,12 @@ export default function MensalidadesPage() {
 
   const gerarMensalidadesMes = async () => {
     try {
+      // Validar se há alunos particulares
+      if (alunosParticulares.length === 0) {
+        alert("Nenhum aluno particular encontrado! Certifique-se de que há alunos cadastrados como particulares.");
+        return;
+      }
+
       const mesAtual = new Date().getMonth() + 1;
       const anoAtual = new Date().getFullYear();
 
@@ -146,7 +152,8 @@ export default function MensalidadesPage() {
         .eq("ano_referencia", anoAtual);
 
       if (errorCheck) {
-        console.error("Erro ao verificar mensalidades existentes:", errorCheck);
+        console.error("Erro ao verificar mensalidades existentes:", errorCheck?.message || errorCheck);
+        alert("Erro ao verificar mensalidades existentes. Tente novamente.");
         return;
       }
 
@@ -165,9 +172,9 @@ export default function MensalidadesPage() {
         mes_referencia: mesAtual,
         ano_referencia: anoAtual,
         valor_mensalidade: aluno.valor_mensalidade,
-        data_vencimento: new Date(anoAtual, mesAtual, 5)
+        data_vencimento: new Date(anoAtual, mesAtual - 1, 5)
           .toISOString()
-          .split("T")[0], // Vencimento dia 5
+          .split("T")[0], // Vencimento dia 5 (mesAtual-1 porque Date usa mês 0-11)
         status: "pendente",
       }));
 
@@ -181,10 +188,12 @@ export default function MensalidadesPage() {
         );
         loadMensalidades();
       } else {
-        console.error("Erro ao gerar mensalidades:", error);
+        console.error("Erro ao gerar mensalidades:", error?.message || error);
+        alert(`Erro ao gerar mensalidades: ${error?.message || 'Erro desconhecido'}`);
       }
     } catch (error) {
-      console.error("Erro ao gerar mensalidades:", error);
+      console.error("Erro ao gerar mensalidades:", error?.message || error);
+      alert(`Erro inesperado ao gerar mensalidades: ${error?.message || 'Erro desconhecido'}`);
     }
   };
 

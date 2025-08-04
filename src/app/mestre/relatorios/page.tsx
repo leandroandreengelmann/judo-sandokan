@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ProximoVencimento {
   id: string;
@@ -264,7 +266,173 @@ export default function RelatoriosPage() {
     }
   }, [user, isMestre, gerarRelatorio]);
 
-  const exportarRelatorio = () => {
+  const exportarRelatorioPDF = async () => {
+    if (!relatorio) return;
+
+    // Buscar todas as mensalidades do período para detalhar no PDF
+    const dataInicio = tipoRelatorio === "mensal" 
+      ? new Date(filtroAno, filtroMes - 1, 1)
+      : new Date(filtroAno, 0, 1);
+    
+    const dataFim = tipoRelatorio === "mensal"
+      ? new Date(filtroAno, filtroMes, 0)
+      : new Date(filtroAno, 11, 31);
+
+    const { data: mensalidadesDetalhadas } = await supabase
+      .from("mensalidades")
+      .select(`
+        *,
+        aluno:user_profiles(nome_completo, email, cor_faixa)
+      `)
+      .gte("data_vencimento", dataInicio.toISOString().split("T")[0])
+      .lte("data_vencimento", dataFim.toISOString().split("T")[0])
+      .order("data_vencimento", { ascending: true });
+
+    const doc = new jsPDF();
+    let yPosition = 20;
+
+    // Header simples
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("RELATÓRIO DE MENSALIDADES", 20, yPosition);
+    
+    yPosition += 10;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const periodoTexto = tipoRelatorio === "mensal" 
+      ? `${meses[filtroMes - 1]} de ${filtroAno}` 
+      : `Ano de ${filtroAno}`;
+    doc.text(`Período: ${periodoTexto}`, 20, yPosition);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 120, yPosition);
+    
+    yPosition += 20;
+
+    // Resumo simples
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("RESUMO GERAL", 20, yPosition);
+    yPosition += 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total de Mensalidades: ${mensalidadesDetalhadas?.length || 0}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`Total de Alunos Particulares: ${relatorio.alunosParticulares}`, 20, yPosition);
+    yPosition += 6;
+    doc.text(`Taxa de Recebimento: ${relatorio.taxaRecebimento.toFixed(1)}%`, 20, yPosition);
+    yPosition += 15;
+
+    // Situação resumida
+    autoTable(doc, {
+      startY: yPosition,
+      head: [['Status', 'Quantidade', 'Valor Total']],
+      body: [
+        ['Pagas', relatorio.mensalidadesPagas.toString(), `R$ ${relatorio.valorPago.toFixed(2)}`],
+        ['Pendentes', relatorio.mensalidadesPendentes.toString(), `R$ ${relatorio.valorPendente.toFixed(2)}`],
+        ['Atrasadas', relatorio.mensalidadesAtrasadas.toString(), `R$ ${relatorio.valorAtrasado.toFixed(2)}`]
+      ],
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [52, 73, 94],
+        textColor: [255, 255, 255],
+        fontSize: 11,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { 
+        fontSize: 10,
+        textColor: [52, 73, 94]
+      },
+      margin: { left: 20, right: 20 }
+    });
+
+    yPosition = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : yPosition + 50;
+
+    // TODAS AS MENSALIDADES DETALHADAS
+    if (mensalidadesDetalhadas && mensalidadesDetalhadas.length > 0) {
+      // Nova página se necessário
+      if (yPosition > 200) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("TODAS AS MENSALIDADES DO PERÍODO", 20, yPosition);
+      yPosition += 10;
+
+      // Preparar dados para a tabela
+      const mensalidadesData = mensalidadesDetalhadas.map(mens => {
+        const status = mens.status === 'pago' ? 'Paga' : 
+                     mens.status === 'pendente' ? 'Pendente' : 'Atrasada';
+        
+        const dataPagamento = mens.data_pagamento 
+          ? new Date(mens.data_pagamento).toLocaleDateString("pt-BR")
+          : '-';
+
+        return [
+          mens.aluno.nome_completo,
+          new Date(mens.data_vencimento).toLocaleDateString("pt-BR"),
+          `R$ ${mens.valor_mensalidade.toFixed(2)}`,
+          status,
+          dataPagamento
+        ];
+      });
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [['Aluno', 'Vencimento', 'Valor', 'Status', 'Dt. Pagamento']],
+        body: mensalidadesData,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [41, 128, 185],
+          textColor: [255, 255, 255],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        bodyStyles: { 
+          fontSize: 9,
+          textColor: [52, 73, 94]
+        },
+        columnStyles: {
+          0: { cellWidth: 60 }, // Nome do aluno
+          1: { cellWidth: 25 }, // Data vencimento
+          2: { cellWidth: 25 }, // Valor
+          3: { cellWidth: 25 }, // Status
+          4: { cellWidth: 25 }  // Data pagamento
+        },
+        margin: { left: 15, right: 15 },
+        didDrawCell: (data) => {
+          // Colorir linha baseado no status
+          if (data.section === 'body') {
+            const status = data.row.raw[3];
+            if (status === 'Paga') {
+              data.doc.setFillColor(232, 245, 233); // Verde claro
+            } else if (status === 'Atrasada') {
+              data.doc.setFillColor(255, 235, 238); // Vermelho claro
+            } else if (status === 'Pendente') {
+              data.doc.setFillColor(255, 248, 225); // Amarelo claro
+            }
+          }
+        }
+      });
+    }
+
+    // Rodapé simples
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setTextColor(150, 150, 150);
+      doc.setFontSize(8);
+      doc.text(`Página ${i} de ${totalPages}`, 20, 285);
+      doc.text(`Sistema Judô - ${new Date().toLocaleDateString("pt-BR")}`, 150, 285);
+    }
+
+    // Salvar o PDF
+    const nomeArquivo = `mensalidades-completo-${tipoRelatorio}-${filtroAno}${tipoRelatorio === 'mensal' ? `-${filtroMes.toString().padStart(2, '0')}` : ''}.pdf`;
+    doc.save(nomeArquivo);
+  };
+
+  const exportarRelatorioTXT = () => {
     if (!relatorio) return;
 
     const dados = [
@@ -394,14 +562,24 @@ export default function RelatoriosPage() {
               </div>
             </div>
 
-            <button
-              onClick={exportarRelatorio}
-              disabled={loadingData || !relatorio}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
-            >
-              <span className="mr-2">📥</span>
-              Exportar Relatório
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={exportarRelatorioPDF}
+                disabled={loadingData || !relatorio}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
+              >
+                <span className="mr-2">📄</span>
+                PDF - Mensalidades
+              </button>
+              <button
+                onClick={exportarRelatorioTXT}
+                disabled={loadingData || !relatorio}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center disabled:opacity-50"
+              >
+                <span className="mr-2">📥</span>
+                Exportar TXT
+              </button>
+            </div>
           </div>
         </div>
 

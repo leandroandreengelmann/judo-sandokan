@@ -87,10 +87,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => reject(new Error("Timeout na consulta do perfil")), 8000);
       });
 
-      const { data: profile, error } = await Promise.race([
+      const result = await Promise.race([
         profilePromise,
         timeoutPromise
-      ]) as any;
+      ]);
+      
+      // Tipar corretamente o resultado do Supabase
+      interface SupabaseResult {
+        data: UserProfile | null;
+        error: { code?: string; message?: string } | null;
+      }
+      const { data: profile, error } = result as SupabaseResult;
 
       if (error) {
         // PGRST116 significa "nenhum registro encontrado" - é esperado para novos usuários

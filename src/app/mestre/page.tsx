@@ -59,7 +59,7 @@ export default function MestrePage() {
     await loadApprovedUsers();
 
     setLoadingUsers(false);
-  }, []);
+  }, [getPendingUsers]);
 
   useEffect(() => {
     if (user && isMestre()) {

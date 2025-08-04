@@ -345,7 +345,7 @@ export default function RelatoriosPage() {
       margin: { left: 20, right: 20 }
     });
 
-    yPosition = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : yPosition + 50;
+    yPosition = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 20 : yPosition + 50;
 
     // TODAS AS MENSALIDADES DETALHADAS
     if (mensalidadesDetalhadas && mensalidadesDetalhadas.length > 0) {

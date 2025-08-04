@@ -127,7 +127,7 @@ export default function AlunosPage() {
     if (user && isMestre()) {
       loadData();
     }
-  }, [user]);
+  }, [user, isMestre, loadData]);
 
   const loadData = async () => {
     setLoadingAlunos(true);

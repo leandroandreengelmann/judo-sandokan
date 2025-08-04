@@ -49,7 +49,7 @@ export default function MestrePage() {
     if (user && isMestre()) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [user, isMestre, loadDashboardData]);
 
   const loadDashboardData = async () => {
     setLoadingUsers(true);

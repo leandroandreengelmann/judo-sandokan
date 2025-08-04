@@ -81,7 +81,7 @@ export default function MensalidadesPage() {
     if (user && isMestre()) {
       loadData();
     }
-  }, [user, isMestre]);
+  }, [user, isMestre, loadData]);
 
   const loadData = async () => {
     setLoadingData(true);

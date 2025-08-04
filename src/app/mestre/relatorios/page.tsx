@@ -7,6 +7,13 @@ import { supabase } from "@/lib/supabase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+// Interface para estender o jsPDF com propriedades do jspdf-autotable
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable?: {
+    finalY: number;
+  };
+}
+
 interface ProximoVencimento {
   id: string;
   data_vencimento: string;
@@ -345,7 +352,7 @@ export default function RelatoriosPage() {
       margin: { left: 20, right: 20 }
     });
 
-    yPosition = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 20 : yPosition + 50;
+    yPosition = (doc as jsPDFWithAutoTable).lastAutoTable ? (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 20 : yPosition + 50;
 
     // TODAS AS MENSALIDADES DETALHADAS
     if (mensalidadesDetalhadas && mensalidadesDetalhadas.length > 0) {

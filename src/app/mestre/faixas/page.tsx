@@ -66,7 +66,7 @@ export default function FaixasPage() {
     if (user && isMestre()) {
       loadFaixas();
     }
-  }, [user]);
+  }, [user, isMestre]);
 
   const loadFaixas = async () => {
     setLoadingFaixas(true);

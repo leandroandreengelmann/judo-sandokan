@@ -1,3 +1,0 @@
-[33m022d463[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Fix TypeScript errors preventing Vercel build
-[33m096ea7f[m Implementação de relatórios PDF e correções no sistema
-[33m832a040[m Corrigir erro de build - adicionar Suspense para useSearchParams

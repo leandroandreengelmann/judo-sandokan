@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserProfile, supabase } from "@/lib/supabase";
@@ -45,13 +45,7 @@ export default function MestrePage() {
     }
   }, [user, loading, isMestre, router]);
 
-  useEffect(() => {
-    if (user && isMestre()) {
-      loadDashboardData();
-    }
-  }, [user, isMestre, loadDashboardData]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoadingUsers(true);
 
     // Carregar usuários pendentes
@@ -65,7 +59,13 @@ export default function MestrePage() {
     await loadApprovedUsers();
 
     setLoadingUsers(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user && isMestre()) {
+      loadDashboardData();
+    }
+  }, [user, isMestre, loadDashboardData]);
 
   const loadStats = async () => {
     try {

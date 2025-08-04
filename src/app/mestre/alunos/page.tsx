@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -123,17 +123,17 @@ export default function AlunosPage() {
     }
   }, [user, loading, isMestre, router]);
 
+  const loadData = useCallback(async () => {
+    setLoadingAlunos(true);
+    await Promise.all([loadAlunos(), loadFaixas()]);
+    setLoadingAlunos(false);
+  }, []);
+
   useEffect(() => {
     if (user && isMestre()) {
       loadData();
     }
   }, [user, isMestre, loadData]);
-
-  const loadData = async () => {
-    setLoadingAlunos(true);
-    await Promise.all([loadAlunos(), loadFaixas()]);
-    setLoadingAlunos(false);
-  };
 
   const loadAlunos = async () => {
     try {

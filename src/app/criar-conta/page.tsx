@@ -236,7 +236,7 @@ export default function CriarContaPage() {
         console.log("📊 Resultado do signUp:", {
           success: !!authData?.user,
           userId: authData?.user?.id,
-          error: authError?.message,
+          error: authError ? authError.message : null,
         });
 
         if (authError) {

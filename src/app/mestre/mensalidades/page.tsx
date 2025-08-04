@@ -188,12 +188,14 @@ export default function MensalidadesPage() {
         );
         loadMensalidades();
       } else {
-        console.error("Erro ao gerar mensalidades:", error?.message || error);
-        alert(`Erro ao gerar mensalidades: ${error?.message || 'Erro desconhecido'}`);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        console.error("Erro ao gerar mensalidades:", errorMessage);
+        alert(`Erro ao gerar mensalidades: ${errorMessage}`);
       }
     } catch (error) {
-      console.error("Erro ao gerar mensalidades:", error?.message || error);
-      alert(`Erro inesperado ao gerar mensalidades: ${error?.message || 'Erro desconhecido'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error("Erro ao gerar mensalidades:", errorMessage);
+      alert(`Erro inesperado ao gerar mensalidades: ${errorMessage}`);
     }
   };
 
